@@ -3,170 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Data Science Assistant</title>
+    <title>AI Data Analysis</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS via CDN for rapid UI development -->
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-    <div class="container">
-        <header>
-            <h1>AI Data Science Assistant</h1>
-            <p>Upload a CSV file for automated Analysis, Visualization, and Modeling.</p>
-        </header>
+<body class="bg-gray-100 font-sans leading-normal tracking-normal">
 
-        <section class="upload-section">
-            <input type="file" id="csvFile" accept=".csv">
-            <button onclick="uploadFile()">Upload & Analyze</button>
-        </section>
+    <div class="container mx-auto p-8">
+        <h1 class="text-3xl font-bold mb-8 text-indigo-700">🔍 AI Data Analyst</h1>
 
-        <div id="loading" class="hidden">Processing...</div>
+        <!-- Upload Section -->
+        <div class="bg-white p-6 rounded shadow mb-8">
+            <h2 class="text-xl font-semibold mb-4">Step 1: Upload CSV</h2>
+            <input type="file" id="csvFile" accept=".csv" class="mb-4 block w-full text-sm text-gray-500
+              file:mr-4 file:py-2 file:px-4
+              file:rounded-full file:border-0
+              file:text-sm file:font-semibold
+              file:bg-indigo-50 file:text-indigo-700
+              hover:file:bg-indigo-100">
+            <button onclick="uploadFile()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded">
+                Upload & Analyze
+            </button>
+        </div>
 
-        <main id="results" class="hidden">
-            <!-- Data Overview -->
-            <section class="card">
-                <h2>1. Data Overview</h2>
-                <div id="dataHead" class="scrollable"></div>
-                <div id="dataStats"></div>
-            </section>
+        <!-- Analysis Section -->
+        <div id="analysisSection" class="bg-white p-6 rounded shadow mb-8 hidden">
+            <h2 class="text-xl font-semibold mb-4">Step 2: Data Analysis</h2>
+            <div id="analysisContent" class="overflow-x-auto"></div>
+        </div>
 
-            <!-- Visualization -->
-            <section class="card">
-                <h2>2. Visualization</h2>
-                <div id="charts" class="gallery"></div>
-            </section>
+        <!-- Visualization Section -->
+        <div id="visualizationSection" class="bg-white p-6 rounded shadow mb-8 hidden">
+            <h2 class="text-xl font-semibold mb-4">Step 3: Visualization</h2>
+            <div id="plotContent" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+        </div>
 
-            <!-- Preprocessing/Modeling -->
-            <section class="card">
-                <h2>3. Modeling Code Generation</h2>
-                <div class="input-group">
-                    <label for="targetCol">Select Target Column for Prediction:</label>
-                    <select id="targetCol"></select>
-                    <button onclick="generateCode()" class="secondary-btn">Generate Python Code</button>
-                </div>
-                <pre id="generatedCode" class="code-block hidden"></pre>
-            </section>
-        </main>
+        <!-- Modeling Section -->
+        <div id="modelingSection" class="bg-white p-6 rounded shadow mb-8 hidden">
+            <h2 class="text-xl font-semibold mb-4">Step 4: Modeling Code</h2>
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2">Target Variable</label>
+                <select id="targetSelect" class="block appearance-none w-full bg-gray-200 border border-gray-200 text-gray-700 py-3 px-4 pr-8 rounded leading-tight focus:outline-none focus:bg-white focus:border-gray-500"></select>
+                <button onclick="generateCode()" class="mt-4 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
+                    Generate Code
+                </button>
+            </div>
+            <pre id="codeContent" class="bg-gray-800 text-green-400 p-4 rounded overflow-auto"></pre>
+        </div>
+
     </div>
 
-    <script>
-        const API_URL = "http://localhost:8000";
-
-        async function uploadFile() {
-            const fileInput = document.getElementById('csvFile');
-            const file = fileInput.files[0];
-            if (!file) return alert("Please select a file first!");
-
-            document.getElementById('loading').classList.remove('hidden');
-            document.getElementById('results').classList.add('hidden');
-
-            const formData = new FormData();
-            formData.append('file', file);
-
-            try {
-                // 1. Upload
-                const uploadRes = await fetch(`${API_URL}/upload`, { method: 'POST', body: formData });
-                const uploadData = await uploadRes.json();
-                
-                if (uploadData.error) throw new Error(uploadData.error);
-                
-                // Populate Dropdown
-                const select = document.getElementById('targetCol');
-                select.innerHTML = '';
-                uploadData.columns.forEach(col => {
-                    const opt = document.createElement('option');
-                    opt.value = col;
-                    opt.textContent = col;
-                    select.appendChild(opt);
-                });
-
-                // Display Head
-                renderTable(uploadData.head, 'dataHead');
-
-                // 2. Analyze
-                const analyzeRes = await fetch(`${API_URL}/analyze`);
-                const analyzeData = await analyzeRes.json();
-                renderStats(analyzeData.description, 'dataStats');
-
-                // 3. Visualize
-                const visRes = await fetch(`${API_URL}/visualize`);
-                const visData = await visRes.json();
-                renderCharts(visData.images, 'charts');
-
-                document.getElementById('loading').classList.add('hidden');
-                document.getElementById('results').classList.remove('hidden');
-
-            } catch (err) {
-                alert("Error: " + err.message);
-                document.getElementById('loading').classList.add('hidden');
-            }
-        }
-
-        async function generateCode() {
-            const target = document.getElementById('targetCol').value;
-            const formData = new FormData();
-            formData.append('target', target);
-
-            try {
-                const res = await fetch(`${API_URL}/model_code`, { method: 'POST', body: formData });
-                const data = await res.json();
-                
-                if(data.error) return alert(data.error);
-
-                const pre = document.getElementById('generatedCode');
-                pre.textContent = data.code;
-                pre.classList.remove('hidden');
-            } catch (err) {
-                alert("generr: " + err);
-            }
-        }
-
-        function renderTable(data, elementId) {
-            if(!data || data.length === 0) return;
-            const headers = Object.keys(data[0]);
-            let html = '<table><thead><tr>';
-            headers.forEach(h => html += `<th>${h}</th>`);
-            html += '</tr></thead><tbody>';
-            data.forEach(row => {
-                html += '<tr>';
-                headers.forEach(h => html += `<td>${row[h]}</td>`);
-                html += '</tr>';
-            });
-            html += '</tbody></table>';
-            document.getElementById(elementId).innerHTML = html;
-        }
-
-        function renderStats(stats, elementId) {
-            // stats is dict of dicts: {col: {count, mean...}}
-            // Transpose for display
-            if (!stats) return;
-            const cols = Object.keys(stats);
-            if (cols.length === 0) return;
-            const metrics = Object.keys(stats[cols[0]]);
-            
-            let html = '<h3>Statistics</h3><table><thead><tr><th>Metric</th>';
-            cols.forEach(c => html += `<th>${c}</th>`);
-            html += '</tr></thead><tbody>';
-            
-            metrics.forEach(m => {
-                html += `<tr><td><strong>${m}</strong></td>`;
-                cols.forEach(c => html += `<td>${parseFloat(stats[c][m]).toFixed(2)}</td>`);
-                html += '</tr>';
-            });
-            html += '</tbody></table>';
-            document.getElementById(elementId).innerHTML = html;
-        }
-
-        function renderCharts(images, elementId) {
-            const container = document.getElementById(elementId);
-            container.innerHTML = '';
-            images.forEach(img => {
-                const div = document.createElement('div');
-                div.className = 'chart-item';
-                div.innerHTML = `<h4>${img.title}</h4><img src="data:image/png;base64,${img.data}" />`;
-                container.appendChild(div);
-            });
-        }
-    </script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

@@ -1,9 +1,10 @@
+flask
 fastapi
 uvicorn
-flask
 pandas
 scikit-learn
 matplotlib
 seaborn
 python-multipart
 requests
+jinja2
