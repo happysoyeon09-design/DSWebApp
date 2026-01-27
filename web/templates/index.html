@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Data Science Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI Data Science Assistant</h1>
+            <p>Upload a CSV file for automated Analysis, Visualization, and Modeling.</p>
+        </header>
+
+        <section class="upload-section">
+            <input type="file" id="csvFile" accept=".csv">
+            <button onclick="uploadFile()">Upload & Analyze</button>
+        </section>
+
+        <div id="loading" class="hidden">Processing...</div>
+
+        <main id="results" class="hidden">
+            <!-- Data Overview -->
+            <section class="card">
+                <h2>1. Data Overview</h2>
+                <div id="dataHead" class="scrollable"></div>
+                <div id="dataStats"></div>
+            </section>
+
+            <!-- Visualization -->
+            <section class="card">
+                <h2>2. Visualization</h2>
+                <div id="charts" class="gallery"></div>
+            </section>
+
+            <!-- Preprocessing/Modeling -->
+            <section class="card">
+                <h2>3. Modeling Code Generation</h2>
+                <div class="input-group">
+                    <label for="targetCol">Select Target Column for Prediction:</label>
+                    <select id="targetCol"></select>
+                    <button onclick="generateCode()" class="secondary-btn">Generate Python Code</button>
+                </div>
+                <pre id="generatedCode" class="code-block hidden"></pre>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        const API_URL = "http://localhost:8000";
+
+        async function uploadFile() {
+            const fileInput = document.getElementById('csvFile');
+            const file = fileInput.files[0];
+            if (!file) return alert("Please select a file first!");
+
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('results').classList.add('hidden');
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                // 1. Upload
+                const uploadRes = await fetch(`${API_URL}/upload`, { method: 'POST', body: formData });
+                const uploadData = await uploadRes.json();
+                
+                if (uploadData.error) throw new Error(uploadData.error);
+                
+                // Populate Dropdown
+                const select = document.getElementById('targetCol');
+                select.innerHTML = '';
+                uploadData.columns.forEach(col => {
+                    const opt = document.createElement('option');
+                    opt.value = col;
+                    opt.textContent = col;
+                    select.appendChild(opt);
+                });
+
+                // Display Head
+                renderTable(uploadData.head, 'dataHead');
+
+                // 2. Analyze
+                const analyzeRes = await fetch(`${API_URL}/analyze`);
+                const analyzeData = await analyzeRes.json();
+                renderStats(analyzeData.description, 'dataStats');
+
+                // 3. Visualize
+                const visRes = await fetch(`${API_URL}/visualize`);
+                const visData = await visRes.json();
+                renderCharts(visData.images, 'charts');
+
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('results').classList.remove('hidden');
+
+            } catch (err) {
+                alert("Error: " + err.message);
+                document.getElementById('loading').classList.add('hidden');
+            }
+        }
+
+        async function generateCode() {
+            const target = document.getElementById('targetCol').value;
+            const formData = new FormData();
+            formData.append('target', target);
+
+            try {
+                const res = await fetch(`${API_URL}/model_code`, { method: 'POST', body: formData });
+                const data = await res.json();
+                
+                if(data.error) return alert(data.error);
+
+                const pre = document.getElementById('generatedCode');
+                pre.textContent = data.code;
+                pre.classList.remove('hidden');
+            } catch (err) {
+                alert("generr: " + err);
+            }
+        }
+
+        function renderTable(data, elementId) {
+            if(!data || data.length === 0) return;
+            const headers = Object.keys(data[0]);
+            let html = '<table><thead><tr>';
+            headers.forEach(h => html += `<th>${h}</th>`);
+            html += '</tr></thead><tbody>';
+            data.forEach(row => {
+                html += '<tr>';
+                headers.forEach(h => html += `<td>${row[h]}</td>`);
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+            document.getElementById(elementId).innerHTML = html;
+        }
+
+        function renderStats(stats, elementId) {
+            // stats is dict of dicts: {col: {count, mean...}}
+            // Transpose for display
+            if (!stats) return;
+            const cols = Object.keys(stats);
+            if (cols.length === 0) return;
+            const metrics = Object.keys(stats[cols[0]]);
+            
+            let html = '<h3>Statistics</h3><table><thead><tr><th>Metric</th>';
+            cols.forEach(c => html += `<th>${c}</th>`);
+            html += '</tr></thead><tbody>';
+            
+            metrics.forEach(m => {
+                html += `<tr><td><strong>${m}</strong></td>`;
+                cols.forEach(c => html += `<td>${parseFloat(stats[c][m]).toFixed(2)}</td>`);
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+            document.getElementById(elementId).innerHTML = html;
+        }
+
+        function renderCharts(images, elementId) {
+            const container = document.getElementById(elementId);
+            container.innerHTML = '';
+            images.forEach(img => {
+                const div = document.createElement('div');
+                div.className = 'chart-item';
+                div.innerHTML = `<h4>${img.title}</h4><img src="data:image/png;base64,${img.data}" />`;
+                container.appendChild(div);
+            });
+        }
+    </script>
+</body>
+</html>
